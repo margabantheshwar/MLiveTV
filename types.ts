@@ -14,6 +14,14 @@ export interface CategoryItem {
   isSystem?: boolean; // To prevent deleting essential categories like 'all'
 }
 
+export interface PromoItem {
+  id: string;
+  title: string;
+  imageUrl: string;
+  link: string; // URL to open when clicked
+  isActive: boolean;
+}
+
 export interface Notification {
   id: string;
   title: string;

@@ -1,6 +1,6 @@
 
-import { Channel, CategoryItem, Notification, AppSettings } from '../types';
-import { STORAGE_KEY, CATEGORIES_KEY, NOTIFICATIONS_KEY, SETTINGS_KEY, DEFAULT_CHANNELS, DEFAULT_CATEGORIES, DEFAULT_SETTINGS } from '../constants';
+import { Channel, CategoryItem, Notification, AppSettings, PromoItem } from '../types';
+import { STORAGE_KEY, CATEGORIES_KEY, NOTIFICATIONS_KEY, SETTINGS_KEY, PROMOS_KEY, FAVORITES_KEY, DEFAULT_CHANNELS, DEFAULT_CATEGORIES, DEFAULT_SETTINGS, DEFAULT_PROMOS } from '../constants';
 
 // --- Channels ---
 export const loadChannels = (): Channel[] => {
@@ -45,6 +45,29 @@ export const saveCategories = (categories: CategoryItem[]): void => {
     localStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories));
   } catch (e) {
     console.error("Failed to save categories", e);
+  }
+};
+
+// --- Promos ---
+export const loadPromos = (): PromoItem[] => {
+  try {
+    const raw = localStorage.getItem(PROMOS_KEY);
+    if (!raw) {
+      savePromos(DEFAULT_PROMOS);
+      return DEFAULT_PROMOS;
+    }
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error("Failed to load promos", e);
+    return DEFAULT_PROMOS;
+  }
+};
+
+export const savePromos = (promos: PromoItem[]): void => {
+  try {
+    localStorage.setItem(PROMOS_KEY, JSON.stringify(promos));
+  } catch (e) {
+    console.error("Failed to save promos", e);
   }
 };
 
@@ -94,4 +117,35 @@ export const saveSettings = (settings: AppSettings): void => {
   } catch (e) {
     console.error("Failed to save settings", e);
   }
+};
+
+// --- Favorites ---
+export const loadFavorites = (): string[] => {
+  try {
+    const raw = localStorage.getItem(FAVORITES_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error("Failed to load favorites", e);
+    return [];
+  }
+};
+
+export const saveFavorites = (favIds: string[]): void => {
+  try {
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify(favIds));
+  } catch (e) {
+    console.error("Failed to save favorites", e);
+  }
+};
+
+export const toggleFavorite = (id: string, currentFavs: string[]): string[] => {
+  let newFavs;
+  if (currentFavs.includes(id)) {
+    newFavs = currentFavs.filter(favId => favId !== id);
+  } else {
+    newFavs = [...currentFavs, id];
+  }
+  saveFavorites(newFavs);
+  return newFavs;
 };

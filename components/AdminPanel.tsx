@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { Channel, CategoryItem, Notification, AppSettings } from '../types';
+import { Channel, CategoryItem, Notification, AppSettings, PromoItem } from '../types';
 import { ADMIN_PASSWORD } from '../constants';
 import { 
   Lock, LogIn, Plus, Trash2, Edit2, Save, X, LogOut, 
-  LayoutGrid, Tv, Bell, Send, Settings as SettingsIcon, CheckCircle
+  LayoutGrid, Tv, Bell, Send, Settings as SettingsIcon, CheckCircle,
+  Eye, EyeOff, Megaphone, Link as LinkIcon, Image as ImageIcon
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { saveNotifications, loadNotifications } from '../services/storageService';
@@ -12,26 +13,31 @@ import { saveNotifications, loadNotifications } from '../services/storageService
 interface AdminPanelProps {
   channels: Channel[];
   categories: CategoryItem[];
+  promos: PromoItem[];
   settings: AppSettings;
   onUpdateChannels: (channels: Channel[]) => void;
   onUpdateCategories: (categories: CategoryItem[]) => void;
+  onUpdatePromos: (promos: PromoItem[]) => void;
   onUpdateSettings: (settings: AppSettings) => void;
   onClose: () => void;
 }
 
-type Tab = 'channels' | 'categories' | 'notifications' | 'settings';
+type Tab = 'channels' | 'categories' | 'promos' | 'notifications' | 'settings';
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ 
   channels, 
   categories, 
+  promos,
   settings,
   onUpdateChannels, 
   onUpdateCategories, 
+  onUpdatePromos,
   onUpdateSettings,
   onClose 
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<Tab>('channels');
 
@@ -44,6 +50,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
 
   // --- Category Form State ---
   const [catName, setCatName] = useState('');
+
+  // --- Promo Form State ---
+  const [promoTitle, setPromoTitle] = useState('');
+  const [promoImg, setPromoImg] = useState('');
+  const [promoLink, setPromoLink] = useState('');
 
   // --- Notification Form State ---
   const [notifTitle, setNotifTitle] = useState('');
@@ -149,6 +160,33 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
+  // --- Promo Logic ---
+  const handleAddPromo = () => {
+    if (!promoImg.trim()) {
+      alert("Image URL is required");
+      return;
+    }
+
+    const newPromo: PromoItem = {
+      id: uuidv4(),
+      title: promoTitle || 'Untitled Promo',
+      imageUrl: promoImg,
+      link: promoLink,
+      isActive: true
+    };
+
+    onUpdatePromos([...promos, newPromo]);
+    setPromoTitle('');
+    setPromoImg('');
+    setPromoLink('');
+  };
+
+  const handleDeletePromo = (id: string) => {
+    if (confirm("Delete this banner?")) {
+      onUpdatePromos(promos.filter(p => p.id !== id));
+    }
+  };
+
   // --- Notification Logic ---
   const handleSendNotification = () => {
     if (!notifTitle.trim() || !notifMsg.trim()) {
@@ -196,17 +234,24 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
         
         <form onSubmit={handleLogin} className="space-y-4">
-          <div>
+          <div className="relative">
             <input
-              type="password"
+              type={showPassword ? "text" : "password"}
               placeholder="Password"
-              className="w-full bg-[#0f1113] border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#00d1ff] transition-colors"
+              className="w-full bg-[#0f1113] border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#00d1ff] transition-colors pr-12"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
-            {error && <p className="text-red-500 text-xs mt-2">{error}</p>}
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white focus:outline-none"
+            >
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+            {error && <p className="text-red-500 text-xs mt-2 absolute -bottom-5 left-0">{error}</p>}
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 pt-2">
             <button
               type="submit"
               className="flex-1 bg-[#00d1ff] hover:bg-[#00b8e6] text-[#0f1113] font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors"
@@ -239,28 +284,34 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex space-x-2 mb-6 border-b border-gray-800 pb-1 overflow-x-auto">
+      <div className="flex space-x-2 mb-6 border-b border-gray-800 pb-1 overflow-x-auto custom-scrollbar">
         <button 
           onClick={() => setActiveTab('channels')}
-          className={`flex items-center gap-2 px-6 py-3 rounded-t-lg font-medium transition-colors border-b-2 ${activeTab === 'channels' ? 'bg-[#15181a] border-[#00d1ff] text-[#00d1ff]' : 'border-transparent text-gray-400 hover:text-white'}`}
+          className={`flex items-center gap-2 px-6 py-3 rounded-t-lg font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'channels' ? 'bg-[#15181a] border-[#00d1ff] text-[#00d1ff]' : 'border-transparent text-gray-400 hover:text-white'}`}
         >
           <Tv size={18} /> Manage Channels
         </button>
         <button 
           onClick={() => setActiveTab('categories')}
-          className={`flex items-center gap-2 px-6 py-3 rounded-t-lg font-medium transition-colors border-b-2 ${activeTab === 'categories' ? 'bg-[#15181a] border-[#00d1ff] text-[#00d1ff]' : 'border-transparent text-gray-400 hover:text-white'}`}
+          className={`flex items-center gap-2 px-6 py-3 rounded-t-lg font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'categories' ? 'bg-[#15181a] border-[#00d1ff] text-[#00d1ff]' : 'border-transparent text-gray-400 hover:text-white'}`}
         >
-          <LayoutGrid size={18} /> Manage Categories
+          <LayoutGrid size={18} /> Categories
+        </button>
+        <button 
+          onClick={() => setActiveTab('promos')}
+          className={`flex items-center gap-2 px-6 py-3 rounded-t-lg font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'promos' ? 'bg-[#15181a] border-[#00d1ff] text-[#00d1ff]' : 'border-transparent text-gray-400 hover:text-white'}`}
+        >
+          <Megaphone size={18} /> Promotions
         </button>
         <button 
           onClick={() => setActiveTab('notifications')}
-          className={`flex items-center gap-2 px-6 py-3 rounded-t-lg font-medium transition-colors border-b-2 ${activeTab === 'notifications' ? 'bg-[#15181a] border-[#00d1ff] text-[#00d1ff]' : 'border-transparent text-gray-400 hover:text-white'}`}
+          className={`flex items-center gap-2 px-6 py-3 rounded-t-lg font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'notifications' ? 'bg-[#15181a] border-[#00d1ff] text-[#00d1ff]' : 'border-transparent text-gray-400 hover:text-white'}`}
         >
           <Bell size={18} /> Notifications
         </button>
         <button 
           onClick={() => setActiveTab('settings')}
-          className={`flex items-center gap-2 px-6 py-3 rounded-t-lg font-medium transition-colors border-b-2 ${activeTab === 'settings' ? 'bg-[#15181a] border-[#00d1ff] text-[#00d1ff]' : 'border-transparent text-gray-400 hover:text-white'}`}
+          className={`flex items-center gap-2 px-6 py-3 rounded-t-lg font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'settings' ? 'bg-[#15181a] border-[#00d1ff] text-[#00d1ff]' : 'border-transparent text-gray-400 hover:text-white'}`}
         >
           <SettingsIcon size={18} /> App Settings
         </button>
@@ -426,6 +477,92 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                       )}
                    </div>
                 ))}
+             </div>
+           </div>
+        </div>
+      )}
+
+      {/* === PROMOS TAB === */}
+      {activeTab === 'promos' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+           {/* Add Promo */}
+           <div className="bg-[#15181a] p-6 rounded-xl border border-gray-800 h-fit">
+              <h3 className="text-lg font-semibold text-[#00d1ff] mb-4 flex items-center gap-2">
+                 <Plus size={18} /> Add Banner
+              </h3>
+              <div className="space-y-4">
+                 <div>
+                    <label className="text-xs text-gray-400 uppercase font-semibold block mb-1">Title</label>
+                    <input 
+                       className="w-full bg-[#0f1113] border border-gray-700 rounded-lg px-3 py-2 text-white focus:border-[#00d1ff] focus:outline-none"
+                       placeholder="e.g. Follow us on Instagram"
+                       value={promoTitle}
+                       onChange={e => setPromoTitle(e.target.value)}
+                    />
+                 </div>
+                 <div>
+                    <label className="text-xs text-gray-400 uppercase font-semibold block mb-1">Image URL (Wide Aspect Ratio)</label>
+                    <div className="relative">
+                       <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-4 h-4" />
+                       <input 
+                          className="w-full bg-[#0f1113] border border-gray-700 rounded-lg py-2 pl-9 pr-3 text-white focus:border-[#00d1ff] focus:outline-none font-mono text-xs"
+                          placeholder="https://..."
+                          value={promoImg}
+                          onChange={e => setPromoImg(e.target.value)}
+                       />
+                    </div>
+                 </div>
+                 <div>
+                    <label className="text-xs text-gray-400 uppercase font-semibold block mb-1">Link URL (Optional)</label>
+                    <div className="relative">
+                       <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-4 h-4" />
+                       <input 
+                          className="w-full bg-[#0f1113] border border-gray-700 rounded-lg py-2 pl-9 pr-3 text-white focus:border-[#00d1ff] focus:outline-none font-mono text-xs"
+                          placeholder="https://..."
+                          value={promoLink}
+                          onChange={e => setPromoLink(e.target.value)}
+                       />
+                    </div>
+                 </div>
+                 <button 
+                   onClick={handleAddPromo}
+                   className="w-full bg-[#00d1ff] hover:bg-[#00b8e6] text-[#0f1113] font-bold py-3 rounded-lg flex items-center justify-center gap-2"
+                 >
+                   <Plus size={18} /> Add to Carousel
+                 </button>
+              </div>
+           </div>
+
+           {/* List Promos */}
+           <div className="bg-[#15181a] rounded-xl border border-gray-800 overflow-hidden">
+             <div className="p-4 border-b border-gray-800 bg-[#1a1d21]">
+               <h3 className="font-semibold text-gray-300">Active Banners</h3>
+             </div>
+             <div className="divide-y divide-gray-800 max-h-[500px] overflow-y-auto custom-scrollbar">
+                {promos.map((item) => (
+                   <div key={item.id} className="p-4 flex flex-col gap-3 hover:bg-[#1a1d21]">
+                      <div className="aspect-[3/1] bg-gray-900 rounded-lg overflow-hidden border border-gray-800 relative group">
+                        <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                           <button 
+                              onClick={() => handleDeletePromo(item.id)}
+                              className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors"
+                           >
+                              <Trash2 size={20} />
+                           </button>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-start">
+                         <div>
+                            <div className="font-bold text-white text-sm">{item.title}</div>
+                            <div className="text-xs text-gray-500 truncate max-w-[200px]">{item.link || 'No link'}</div>
+                         </div>
+                      </div>
+                   </div>
+                ))}
+                {promos.length === 0 && (
+                  <div className="p-8 text-center text-gray-500 italic">No banners active. Add one to show on main page.</div>
+                )}
              </div>
            </div>
         </div>

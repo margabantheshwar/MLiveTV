@@ -1,12 +1,14 @@
 
-import { Channel, CategoryItem, AppSettings } from './types';
+import { Channel, CategoryItem, AppSettings, PromoItem } from './types';
 
 export const STORAGE_KEY = 'live_tv_channels_v5';
 export const CATEGORIES_KEY = 'live_tv_categories_v1';
 export const NOTIFICATIONS_KEY = 'live_tv_notifications_v1';
+export const PROMOS_KEY = 'live_tv_promos_v1';
 export const SETTINGS_KEY = 'live_tv_settings_v1';
+export const FAVORITES_KEY = 'live_tv_favorites_v1';
 
-export const ADMIN_PASSWORD = '12345'; // In a real app, use backend auth
+export const ADMIN_PASSWORD = 'MargabantheshwaR@04102003@'; // In a real app, use backend auth
 
 // REPLACE THIS WITH YOUR REAL ADSENSE PUBLISHER ID
 export const ADSENSE_CLIENT_ID = 'ca-pub-0000000000000000'; 
@@ -28,6 +30,23 @@ export const DEFAULT_CATEGORIES: CategoryItem[] = [
   { id: 'music', label: 'Music' },
   { id: 'international', label: 'International' },
   { id: 'devotional', label: 'Devotional' },
+];
+
+export const DEFAULT_PROMOS: PromoItem[] = [
+  {
+    id: 'demo-1',
+    title: 'Download Our Android App',
+    imageUrl: 'https://picsum.photos/id/20/600/250',
+    link: 'https://example.com/app',
+    isActive: true
+  },
+  {
+    id: 'demo-2',
+    title: 'Join Telegram Channel',
+    imageUrl: 'https://picsum.photos/id/24/600/250',
+    link: 'https://telegram.org',
+    isActive: true
+  }
 ];
 
 export const DEFAULT_CHANNELS: Channel[] = [

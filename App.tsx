@@ -10,9 +10,10 @@ import {
   Search,
   ExternalLink,
   ArrowLeft,
-  Bell
+  Bell,
+  Heart
 } from 'lucide-react';
-import { Channel, CategoryItem, Notification, AppSettings } from './types';
+import { Channel, CategoryItem, Notification, AppSettings, PromoItem } from './types';
 import { 
   loadChannels, 
   saveChannels, 
@@ -20,18 +21,26 @@ import {
   saveCategories, 
   loadSettings,
   saveSettings,
-  getLatestNotification 
+  getLatestNotification,
+  loadPromos,
+  savePromos,
+  loadFavorites,
+  toggleFavorite
 } from './services/storageService';
 import { DEFAULT_SETTINGS } from './constants';
 import VideoPlayer from './components/VideoPlayer';
 import AdminPanel from './components/AdminPanel';
 import AboutModal from './components/AboutModal';
 import AdBanner from './components/AdBanner';
+import PromoSlider from './components/PromoSlider';
 
 function App() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [promos, setPromos] = useState<PromoItem[]>([]);
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  
   const [currentCategory, setCurrentCategory] = useState<string>('all');
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -49,6 +58,8 @@ function App() {
     setChannels(loadChannels());
     setCategories(loadCategories());
     setSettings(loadSettings());
+    setPromos(loadPromos());
+    setFavoriteIds(loadFavorites());
 
     // Check for notifications
     const latest = getLatestNotification();
@@ -72,6 +83,11 @@ function App() {
     saveCategories(newCategories);
   };
 
+  const handleUpdatePromos = (newPromos: PromoItem[]) => {
+    setPromos(newPromos);
+    savePromos(newPromos);
+  };
+
   const handleUpdateSettings = (newSettings: AppSettings) => {
     setSettings(newSettings);
     saveSettings(newSettings);
@@ -82,6 +98,12 @@ function App() {
       localStorage.setItem('last_seen_notification_id', notification.id);
     }
     setShowNotification(false);
+  };
+
+  const handleToggleFavorite = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation(); // Prevent opening channel
+    const newFavs = toggleFavorite(id, favoriteIds);
+    setFavoriteIds(newFavs);
   };
 
   const handleShare = async () => {
@@ -117,7 +139,12 @@ function App() {
   };
 
   const filteredChannels = channels.filter(c => {
-    const matchesCategory = currentCategory === 'all' || c.category === currentCategory;
+    let matchesCategory = true;
+    if (currentCategory === 'favorites') {
+      matchesCategory = favoriteIds.includes(c.id);
+    } else if (currentCategory !== 'all') {
+      matchesCategory = c.category === currentCategory;
+    }
     const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesCategory && matchesSearch;
   });
@@ -309,6 +336,23 @@ function App() {
         <div className="overflow-y-auto h-full pb-10 custom-scrollbar">
           <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 px-2">Browse</h3>
           <div className="space-y-1">
+            {/* Favorites Category (Injected Manually) */}
+            <button
+              onClick={() => {
+                setCurrentCategory('favorites');
+                setIsSidebarOpen(false);
+                setView('user');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className={`w-full text-left px-3 py-3 rounded-lg flex items-center justify-between group transition-all ${currentCategory === 'favorites' ? 'bg-[#00d1ff]/10 text-[#00d1ff] font-medium' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}
+            >
+              <div className="flex items-center gap-2">
+                 <Heart size={18} className={currentCategory === 'favorites' ? 'fill-[#00d1ff]' : ''} />
+                 <span>Favorites</span>
+              </div>
+              {currentCategory === 'favorites' && <div className="w-1.5 h-1.5 rounded-full bg-[#00d1ff]" />}
+            </button>
+
             {categories.map(cat => (
               <button
                 key={cat.id}
@@ -357,9 +401,11 @@ function App() {
           <AdminPanel 
             channels={channels}
             categories={categories}
+            promos={promos}
             settings={settings}
             onUpdateChannels={handleUpdateChannels}
             onUpdateCategories={handleUpdateCategories}
+            onUpdatePromos={handleUpdatePromos}
             onUpdateSettings={handleUpdateSettings}
             onClose={() => setView('user')}
           />
@@ -369,6 +415,11 @@ function App() {
             {/* Top Ad Banner */}
             {isMainPage && (
               <AdBanner dataAdFormat="horizontal" className="mt-0" />
+            )}
+
+            {/* Promotional Banner Carousel */}
+            {isMainPage && promos.length > 0 && (
+               <PromoSlider items={promos} />
             )}
             
             {/* Player Section */}
@@ -406,7 +457,9 @@ function App() {
             <div className="space-y-4">
               <div className="flex items-center justify-between px-1">
                 <h2 className="text-lg md:text-xl font-bold text-gray-200">
-                  {currentCategory === 'all' ? 'All Channels' : categories.find(c => c.id === currentCategory)?.label || currentCategory}
+                  {currentCategory === 'favorites' ? 'Your Favorites' : (
+                     currentCategory === 'all' ? 'All Channels' : categories.find(c => c.id === currentCategory)?.label || currentCategory
+                  )}
                 </h2>
                 <div className="text-xs md:text-sm text-gray-500">
                   {filteredChannels.length} Channels
@@ -418,49 +471,64 @@ function App() {
                   className="grid gap-3 pb-8"
                   style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(109px, 1fr))' }}
                 >
-                  {filteredChannels.map(channel => (
-                    <div 
-                      key={channel.id}
-                      className={`group bg-[#15181a] hover:bg-[#1a1d21] border border-gray-800 hover:border-gray-700 rounded-xl overflow-hidden transition-all duration-300 active:scale-95 hover:-translate-y-1 hover:shadow-[0_10px_30px_rgba(0,0,0,0.3)] cursor-pointer flex flex-col relative ${selectedChannel?.id === channel.id ? 'ring-2 ring-[#00d1ff]' : ''}`}
-                      style={{ height: '152.52px' }}
-                      onClick={() => handleChannelClick(channel)}
-                    >
-                      <div className="w-full flex-1 bg-[#0a0c0e] relative overflow-hidden p-2 flex items-center justify-center">
-                        <img 
-                          src={channel.logo} 
-                          alt={channel.name} 
-                          className="w-full h-full object-contain opacity-90 md:opacity-80 group-hover:opacity-100 transition-opacity transform group-hover:scale-105 duration-500"
-                          loading="lazy"
-                        />
-                        
-                        {isRecent(channel.createdAt) && (
-                          <div className="absolute top-0 right-0 bg-[#00d1ff] text-[#0f1113] text-[9px] font-bold px-2 py-0.5 rounded-bl-lg shadow-sm z-20">
-                            NEW
+                  {filteredChannels.map(channel => {
+                    const isFav = favoriteIds.includes(channel.id);
+                    return (
+                      <div 
+                        key={channel.id}
+                        className={`group bg-[#15181a] hover:bg-[#1a1d21] border border-gray-800 hover:border-gray-700 rounded-xl overflow-hidden transition-all duration-300 active:scale-95 hover:-translate-y-1 hover:shadow-[0_10px_30px_rgba(0,0,0,0.3)] cursor-pointer flex flex-col relative ${selectedChannel?.id === channel.id ? 'ring-2 ring-[#00d1ff]' : ''}`}
+                        style={{ height: '152.52px' }}
+                        onClick={() => handleChannelClick(channel)}
+                      >
+                        <div className="w-full flex-1 bg-[#0a0c0e] relative overflow-hidden p-2 flex items-center justify-center">
+                          <img 
+                            src={channel.logo} 
+                            alt={channel.name} 
+                            className="w-full h-full object-contain opacity-90 md:opacity-80 group-hover:opacity-100 transition-opacity transform group-hover:scale-105 duration-500"
+                            loading="lazy"
+                          />
+                          
+                          {/* Favorite Button */}
+                          <div className="absolute top-1 left-1 z-30">
+                              <button 
+                                onClick={(e) => handleToggleFavorite(e, channel.id)}
+                                className="p-1.5 rounded-full bg-black/40 hover:bg-black/60 transition-colors backdrop-blur-sm"
+                              >
+                                <Heart size={14} className={`${isFav ? 'text-red-500 fill-red-500' : 'text-white'}`} />
+                              </button>
                           </div>
-                        )}
+                          
+                          {isRecent(channel.createdAt) && (
+                            <div className="absolute top-0 right-0 bg-[#00d1ff] text-[#0f1113] text-[9px] font-bold px-2 py-0.5 rounded-bl-lg shadow-sm z-20">
+                              NEW
+                            </div>
+                          )}
 
-                        {/* Overlay: Visible on hover for desktop, handled by tap on mobile */}
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm duration-500 z-10 md:flex hidden">
-                           <div className={`w-10 h-10 rounded-full flex items-center justify-center transform scale-0 group-hover:scale-100 transition-transform duration-300 delay-75 ${channel.category === 'movie' ? 'bg-green-500 text-black' : 'bg-[#00d1ff] text-[#0f1113]'}`}>
-                              {channel.category === 'movie' ? <ExternalLink size={20} /> : <Play size={20} fill="currentColor" />}
-                           </div>
+                          {/* Overlay: Visible on hover for desktop, handled by tap on mobile */}
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm duration-500 z-10 md:flex hidden">
+                             <div className={`w-10 h-10 rounded-full flex items-center justify-center transform scale-0 group-hover:scale-100 transition-transform duration-300 delay-75 ${channel.category === 'movie' ? 'bg-green-500 text-black' : 'bg-[#00d1ff] text-[#0f1113]'}`}>
+                                {channel.category === 'movie' ? <ExternalLink size={20} /> : <Play size={20} fill="currentColor" />}
+                             </div>
+                          </div>
+                        </div>
+                        
+                        <div className="p-2 h-[42px] flex flex-col justify-center bg-[#15181a] border-t border-gray-800/50">
+                          <h3 className="font-bold text-gray-200 line-clamp-1 group-hover:text-[#00d1ff] transition-colors text-[11px] leading-tight text-center">{channel.name}</h3>
+                          <span className="text-[9px] font-medium text-gray-500 uppercase tracking-wide text-center mt-0.5 block truncate">
+                            {categories.find(c => c.id === channel.category)?.label || channel.category}
+                          </span>
                         </div>
                       </div>
-                      
-                      <div className="p-2 h-[42px] flex flex-col justify-center bg-[#15181a] border-t border-gray-800/50">
-                        <h3 className="font-bold text-gray-200 line-clamp-1 group-hover:text-[#00d1ff] transition-colors text-[11px] leading-tight text-center">{channel.name}</h3>
-                        <span className="text-[9px] font-medium text-gray-500 uppercase tracking-wide text-center mt-0.5 block truncate">
-                          {categories.find(c => c.id === channel.category)?.label || channel.category}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-20 text-gray-500 bg-[#15181a] rounded-2xl border border-gray-800 border-dashed mx-2">
                   <Search size={48} className="mb-4 opacity-20" />
                   <p className="text-lg">No channels found</p>
-                  <p className="text-sm opacity-60">Try changing the category or search term.</p>
+                  <p className="text-sm opacity-60">
+                    {currentCategory === 'favorites' ? 'Add channels to favorites by clicking the heart icon.' : 'Try changing the category or search term.'}
+                  </p>
                 </div>
               )}
             </div>
